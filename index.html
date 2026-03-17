@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>凡人修仙传 · 掌中洞府 (黑色火柴人·凡人版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        /* 样式完全保持原有风格，仅针对canvas火柴人做微调 */
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap');
+
+        :root {
+            --bg-paper: #f4f1de;
+            --ink-dark: #2f3e46;
+            --jade-green: #2d6a4f;
+            --jade-light: #52b788;
+            --accent-red: #e07a5f;
+            --stickman-color: #2f3e46;
+            --robe-color: #ffffff;
+            --glow-color: rgba(45, 106, 79, 0.4);
+            
+            --array-color: var(--jade-light);
+            --array-glow: rgba(82, 183, 136, 0.4);
+            --array-speed: 20s;
+        }
+
+        body {
+            font-family: 'Noto Serif SC', serif;
+            background-color: var(--bg-paper);
+            color: var(--ink-dark);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 0.25rem;
+        }
+
+        .ambient-bg {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #f4f1de 0%, #d8e2dc 100%);
+            z-index: -1;
+            opacity: 0.6;
+        }
+
+        .qi-particle {
+            position: absolute;
+            pointer-events: none;
+            background: var(--array-color);
+            border-radius: 50%;
+            filter: blur(0.5px) drop-shadow(0 0 3px var(--array-color));
+            animation: gather 1s ease-in forwards;
+            z-index: 50;
+        }
+
+        @keyframes gather {
+            0% { transform: translate(var(--sx), var(--sy)) scale(1.5); opacity: 0; }
+            20% { opacity: 1; }
+            100% { transform: translate(0, 0) scale(0); opacity: 0; }
+        }
+
+        .ink-panel {
+            background: rgba(255, 255, 255, 0.5);
+            border: 1px solid rgba(47, 62, 70, 0.1);
+            border-radius: 0.5rem;
+        }
+
+        .custom-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.02);
+            border-radius: 10px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(47, 62, 70, 0.15);
+            border-radius: 10px;
+        }
+
+        .stat-bar-bg {
+            height: 6px;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .tab-active {
+            color: var(--accent-red);
+            font-weight: bold;
+            border-bottom: 2px solid var(--accent-red);
+        }
+
+        .spirit-array-container {
+            position: relative;
+            width: 160px;
+            height: 160px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.5s ease;
+            transform-style: preserve-3d;
+        }
+
+        .spirit-array-circle {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 2px solid var(--array-color);
+            opacity: 0.3;
+            z-index: 5;
+            transition: all 0.5s ease;
+        }
+
+        .spirit-array-circle::before {
+            content: '';
+            position: absolute;
+            inset: 8px;
+            border: 1px dashed var(--array-color);
+            border-radius: 50%;
+            animation: spin var(--array-speed) linear infinite;
+            opacity: 0.6;
+        }
+
+        .spirit-array-outer {
+            position: absolute;
+            width: 120%;
+            height: 120%;
+            border-radius: 50%;
+            border: 1px double var(--array-color);
+            opacity: 0;
+            transition: all 0.8s ease;
+            animation: spin-reverse 40s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        @keyframes spin-reverse {
+            from { transform: rotate(360deg); }
+            to { transform: rotate(0deg); }
+        }
+
+        /* 重定义火柴人容器，扩大一点以适应canvas绘制 */
+        .stickman-wrapper {
+            position: absolute;
+            z-index: 20;
+            pointer-events: none;
+            width: 140px;
+            height: 140px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* canvas填满wrapper */
+        .stickman-wrapper canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .rune-orbit-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            perspective: 500px;
+            pointer-events: none;
+            z-index: 25;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .rune-orbit {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            animation: spin var(--array-speed) linear infinite;
+            transform-style: preserve-3d;
+        }
+
+        .rune-text {
+            position: absolute;
+            font-size: 12px;
+            font-weight: bold;
+            color: var(--array-color);
+            text-shadow: 0 0 5px var(--array-color);
+            opacity: 0.7;
+            animation: rune-self-spin 3s linear infinite;
+            white-space: nowrap;
+        }
+
+        @keyframes rune-self-spin {
+            0% { transform: rotateY(0deg); }
+            100% { transform: rotateY(360deg); }
+        }
+
+        .aura-pulse {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            animation: pulse-aura 6s ease-out infinite;
+            border: 1px solid var(--array-color);
+            box-shadow: 0 0 15px var(--array-glow);
+        }
+
+        @keyframes pulse-aura {
+            0% { width: 30%; height: 30%; opacity: 0; }
+            30% { opacity: 0.4; }
+            100% { width: 140%; height: 140%; opacity: 0; }
+        }
+
+        .herb-ripe {
+            animation: herb-pulse 1.5s infinite;
+        }
+        @keyframes herb-pulse {
+            0%, 100% { color: var(--jade-light); }
+            50% { color: #fff; text-shadow: 0 0 10px var(--jade-light); }
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-content {
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+            max-width: 90vw;
+        }
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+
+        .equip-slot {
+            width: 44px;
+            height: 44px;
+            border: 1px dashed rgba(47, 62, 70, 0.2);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.3);
+            transition: all 0.2s;
+            cursor: pointer;
+            position: relative;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .equip-slot:hover {
+            border-color: var(--jade-light);
+            background: rgba(82, 183, 136, 0.1);
+        }
+        .equip-slot i {
+            font-size: 1.2rem;
+        }
+        .equip-slot .remove-tip {
+            position: absolute;
+            bottom: -18px;
+            font-size: 9px;
+            color: #e07a5f;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            background: rgba(255,255,240,0.8);
+            padding: 2px 4px;
+            border-radius: 10px;
+            z-index: 60;
+        }
+        .equip-slot:active .remove-tip {
+            opacity: 1;
+        }
+
+        .eq-quality-0 {
+            border-color: #6c757d;
+            box-shadow: 0 0 4px rgba(108, 117, 125, 0.4);
+            background: linear-gradient(145deg, #ffffff, #f0f0f0);
+        }
+        .eq-quality-1 {
+            border-color: #2d6a4f;
+            box-shadow: 0 0 8px #2d6a4f;
+            background: linear-gradient(145deg, #f0fff4, #d8f3dc);
+        }
+        .eq-quality-2 {
+            border-color: #4895ef;
+            box-shadow: 0 0 12px #4895ef;
+            background: linear-gradient(145deg, #e7f0ff, #c9e0ff);
+        }
+        .eq-quality-3 {
+            border-color: #f72585;
+            box-shadow: 0 0 16px #f72585;
+            background: linear-gradient(145deg, #ffe7f0, #ffd0e0);
+        }
+
+        .eq-quality-0 i { filter: drop-shadow(0 2px 2px rgba(0,0,0,0.1)); }
+        .eq-quality-1 i { filter: drop-shadow(0 0 5px #2d6a4f); }
+        .eq-quality-2 i { filter: drop-shadow(0 0 8px #4895ef); }
+        .eq-quality-3 i { filter: drop-shadow(0 0 12px #f72585); }
+
+        @media (max-width: 640px) {
+            body { padding: 0.15rem; }
+            .relative.w-32.h-40 .equip-slot { width: 38px; height: 38px; }
+            .relative.w-32.h-40 .equip-slot i { font-size: 1rem; }
+            .spirit-array-container { width: 130px; height: 130px; }
+            .stickman-wrapper { width: 110px; height: 110px; }
+            .top-4.left-4 { top: 8px; left: 8px; width: 110px; }
+        }
+
+        .equip-slot:active {
+            background: rgba(82, 183, 136, 0.3);
+            border-color: var(--jade-green);
+        }
+
+        /* 新增战斗节奏提示 */
+        .combat-tick-indicator {
+            width: 4px;
+            height: 4px;
+            background: var(--accent-red);
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 4px;
+            animation: pulseTick 1s infinite;
+        }
+        @keyframes pulseTick {
+            0% { opacity: 0.2; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.3); }
+            100% { opacity: 0.2; transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="p-1 md:p-4">
+
+    <div class="ambient-bg"></div>
+
+    <!-- 属性弹窗 (寿元显示) -->
+    <div id="stat-modal" class="modal-overlay" onclick="toggleModal(false)">
+        <div class="modal-content w-80 ink-panel bg-white/95 p-6 shadow-2xl relative" onclick="event.stopPropagation()">
+            <button onclick="toggleModal(false)" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                <i class="ri-close-line text-xl"></i>
+            </button>
+            <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <i class="ri-user-settings-line text-emerald-600"></i> 修仙者属性
+            </h2>
+            <div class="space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+                    <span class="text-xs text-slate-500">道号</span>
+                    <span class="text-sm font-bold">青云道人</span>
+                </div>
+                <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+                    <span class="text-xs text-slate-500">境界</span>
+                    <span id="modal-realm" class="text-sm font-bold text-emerald-700">练气一层</span>
+                </div>
+                <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+                    <span class="text-xs text-slate-500">寿元</span>
+                    <span id="modal-lifespan" class="text-sm font-bold text-amber-700">15/80</span>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-50 p-3 rounded-lg">
+                        <p class="text-[10px] text-slate-400 mb-1">攻击力</p>
+                        <p id="modal-atk" class="text-lg font-mono font-bold text-rose-600">10</p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-lg">
+                        <p class="text-[10px] text-slate-400 mb-1">防御力</p>
+                        <p id="modal-def" class="text-lg font-mono font-bold text-slate-600">5</p>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <p class="text-[10px] text-slate-400">寿元流逝</p>
+                    <div class="flex items-center gap-2">
+                        <div class="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div id="modal-lifespan-bar" class="h-full bg-amber-400" style="width: 18.75%"></div>
+                        </div>
+                        <span id="modal-lifespan-text" class="text-[10px] text-slate-500">15/80</span>
+                    </div>
+                </div>
+            </div>
+            <p class="text-[10px] text-center text-slate-400 mt-6 italic">“顺为人，逆为仙，只在中间颠倒颠。”</p>
+        </div>
+    </div>
+
+    <!-- 顶部状态栏 -->
+    <header class="flex flex-col gap-1 mb-1 shrink-0 z-10">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2 cursor-pointer group" onclick="toggleModal(true)">
+                <div class="w-9 h-9 rounded-full bg-white/40 border border-slate-300 flex items-center justify-center shadow-sm group-hover:border-emerald-400">
+                    <i class="ri-user-4-line text-base text-slate-600 group-hover:text-emerald-600"></i>
+                </div>
+                <div>
+                    <h1 id="player-name" class="text-xs font-bold text-slate-800 leading-tight">青云道人</h1>
+                    <p class="text-[9px] text-slate-500">
+                        <span id="player-realm" class="bg-slate-200 px-1.5 py-0.5 rounded">练气一层</span>
+                    </p>
+                </div>
+            </div>
+            <div class="flex gap-1 text-xs">
+                <div class="flex items-center gap-1 px-2 py-1 bg-green-100/40 rounded-lg border border-green-200">
+                    <i class="ri-leaf-line text-emerald-600 text-sm"></i>
+                    <span id="player-herbs" class="font-bold text-emerald-700 text-xs">0</span>
+                </div>
+                <div class="flex items-center gap-1 px-2 py-1 bg-amber-100/40 rounded-lg border border-amber-200">
+                    <i class="ri-coin-line text-amber-600 text-sm"></i>
+                    <span id="player-stones" class="font-bold text-amber-700 text-xs">0</span>
+                </div>
+                <div class="flex items-center gap-1 px-2 py-1 bg-red-100/40 rounded-lg border border-red-200">
+                    <i class="ri-cake-line text-red-600 text-sm"></i>
+                    <span id="player-lifespan" class="font-bold text-red-700 text-xs">15/80</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-1 w-full">
+            <div class="ink-panel p-1 flex flex-col justify-center">
+                <div class="flex justify-between items-center text-[8px] mb-0.5 font-bold text-rose-700">
+                    <span>气血</span>
+                    <span id="hp-text" class="font-mono">100/100</span>
+                </div>
+                <div class="stat-bar-bg"><div id="hp-bar" class="h-full bg-rose-400 transition-all" style="width: 100%"></div></div>
+            </div>
+            <div class="ink-panel p-1 flex flex-col justify-center">
+                <div class="flex justify-between items-center text-[8px] mb-0.5 font-bold text-emerald-700">
+                    <span>灵力</span>
+                    <span id="exp-text" class="font-mono">0/100</span>
+                </div>
+                <div class="stat-bar-bg"><div id="exp-bar" class="h-full bg-emerald-500 transition-all" style="width: 0%"></div></div>
+            </div>
+            <div class="ink-panel p-1 flex flex-col justify-center text-center">
+                <p class="text-[8px] text-slate-500 font-bold mb-0.5">攻击</p>
+                <p id="stat-atk" class="text-xs font-bold text-rose-600 leading-none">10</p>
+            </div>
+            <div class="ink-panel p-1 flex flex-col justify-center text-center">
+                <p class="text-[8px] text-slate-500 font-bold mb-0.5">防御</p>
+                <p id="stat-def" class="text-xs font-bold text-slate-600 leading-none">5</p>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主交互区 -->
+    <main class="flex-1 flex flex-col lg:flex-row gap-2 min-h-0 w-full">
+        <!-- 导航 -->
+        <nav class="flex lg:flex-col justify-around lg:justify-start gap-1 shrink-0 mt-1 lg:mt-0">
+            <button onclick="switchTab('home')" id="btn-home" class="p-2 rounded-lg ink-panel hover:bg-white/80 transition tab-active">
+                <i class="ri-ancient-pavilion-line text-xl"></i>
+                <span class="block text-[8px] mt-0.5">洞府</span>
+            </button>
+            <button onclick="switchTab('bag')" id="btn-bag" class="p-2 rounded-lg ink-panel hover:bg-white/80 transition">
+                <i class="ri-briefcase-4-line text-xl"></i>
+                <span class="block text-[8px] mt-0.5">包裹</span>
+            </button>
+            <button onclick="switchTab('fight')" id="btn-fight" class="p-2 rounded-lg ink-panel hover:bg-white/80 transition">
+                <i class="ri-sword-line text-xl"></i>
+                <span class="block text-[8px] mt-0.5">历练</span>
+            </button>
+        </nav>
+
+        <!-- 主要内容区域 -->
+        <section class="flex-1 min-h-0">
+            <!-- 洞府主页 -->
+            <div id="tab-home" class="h-full flex flex-col md:flex-row gap-2 min-h-0">
+                <!-- 左侧聚灵阵 (火柴人替换为canvas动态版) -->
+                <div class="flex-[3] ink-panel p-2 flex flex-col items-center justify-center relative overflow-hidden">
+                    <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(82,183,136,0.1)_0%,_transparent_70%)]"></div>
+                    
+                    <div class="spirit-array-container cursor-pointer" onclick="manualGather(event)">
+                        <div id="array-pulse" class="aura-pulse"></div>
+                        <div id="array-outer-ring" class="spirit-array-outer"></div>
+                        <div id="array-inner-ring" class="spirit-array-circle"></div>
+                        <div id="rune-container" class="rune-orbit-container"></div>
+
+                        <!-- 完全替换为canvas火柴人 (至尊修仙版) -->
+                        <div class="stickman-wrapper">
+                            <canvas id="stickman-canvas" width="140" height="140"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- 聚灵阵控制卡片 -->
+                    <div class="absolute top-1 left-1 text-left pointer-events-none w-28 md:w-40">
+                        <div class="bg-white/40 backdrop-blur-sm p-1.5 rounded-lg border border-emerald-200/50 flex flex-col gap-1">
+                            <div>
+                                <p class="text-[9px] font-bold text-emerald-800">聚灵阵 · <span id="array-lvl">一阶</span></p>
+                                <p class="text-[8px] text-slate-500">效率: <span id="qi-speed">0.9/秒</span></p>
+                            </div>
+                            <button onclick="upgradeArray()" class="pointer-events-auto w-full py-1 bg-emerald-600 text-white rounded text-[8px] hover:bg-emerald-700 transition shadow-sm">
+                                消耗灵石 <span id="upgrade-cost">50</span> 升级
+                            </button>
+                            <button id="break-btn" onclick="tryBreakthrough()" class="pointer-events-auto w-full py-1 bg-rose-600 hover:bg-rose-500 rounded text-white text-[8px] font-bold transition-all shadow-md hidden animate-pulse">
+                                <i class="ri-flashlight-line mr-1"></i>突破
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右侧灵田+丹炉 (保持不变) -->
+                <div class="flex-1 flex flex-col gap-2">
+                    <div class="flex-1 ink-panel p-2 flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <h3 class="text-[9px] font-bold text-slate-600 flex items-center gap-1">
+                                    <i id="garden-icon" class="ri-seedling-line text-emerald-500"></i>后山灵田
+                                </h3>
+                                <button onclick="upgradeGarden()" class="text-[8px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
+                                    Lv.<span id="garden-level">1</span> 升级(<span id="garden-upgrade-cost">30</span>)
+                                </button>
+                            </div>
+                            <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                <div id="garden-progress" class="h-full bg-emerald-400" style="width: 0%"></div>
+                            </div>
+                            <p id="garden-status" class="text-[8px] text-slate-400 mt-1">灵田空闲 · 请播种</p>
+                        </div>
+                        <button id="garden-action-btn" onclick="handleGardenAction()" class="w-full py-2 bg-slate-100 text-slate-400 rounded text-[9px] font-bold" disabled>
+                            未播种
+                        </button>
+                    </div>
+
+                    <div class="flex-1 ink-panel p-2">
+                        <h3 class="text-[9px] font-bold text-slate-600 mb-2">炼丹法鼎</h3>
+                        <div class="space-y-1">
+                            <div class="flex justify-between items-center p-1 bg-slate-100/50 rounded text-[8px]">
+                                <span>灵草提纯</span>
+                                <button onclick="alchemyExchange()" class="bg-amber-500 text-white px-2 py-1 rounded hover:bg-amber-600 text-[9px]">转化灵石</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 包裹/装备界面 (完整保留) -->
+            <div id="tab-bag" class="hidden h-full flex flex-col md:flex-row gap-2 min-h-0">
+                <!-- 左侧装备栏 -->
+                <div class="w-full md:w-64 ink-panel p-2 flex flex-col items-center">
+                    <h3 class="text-xs font-bold mb-2 self-start flex items-center gap-1">
+                        <i class="ri-shield-user-line text-emerald-600"></i> 当前法器
+                    </h3>
+                    <div class="relative w-28 h-36 bg-slate-100/50 rounded-xl border border-slate-200 mb-2 flex items-center justify-center">
+                        <i class="ri-user-3-line text-3xl text-slate-300"></i>
+                        <div class="absolute -left-4 top-1 equip-slot shadow-inner" title="武器" id="slot-weapon" onclick="unequip('weapon')">
+                            <i class="ri-sword-line text-slate-400"></i>
+                            <span class="remove-tip">点击卸下</span>
+                        </div>
+                        <div class="absolute -left-4 bottom-7 equip-slot shadow-inner" title="饰品" id="slot-accessory" onclick="unequip('accessory')">
+                            <i class="ri-copper-coin-line text-slate-400"></i>
+                            <span class="remove-tip">点击卸下</span>
+                        </div>
+                        <div class="absolute -right-4 top-1 equip-slot shadow-inner" title="法衣" id="slot-armor" onclick="unequip('armor')">
+                            <i class="ri-shirt-line text-slate-400"></i>
+                            <span class="remove-tip">点击卸下</span>
+                        </div>
+                        <div class="absolute -right-4 bottom-7 equip-slot shadow-inner" title="法宝" id="slot-artifact" onclick="unequip('artifact')">
+                            <i class="ri-magic-line text-slate-400"></i>
+                            <span class="remove-tip">点击卸下</span>
+                        </div>
+                    </div>
+                    <div class="w-full space-y-1" id="equip-info">
+                        <div class="p-1 bg-white/60 rounded border border-slate-100 text-[9px] flex justify-between">
+                            <span class="text-slate-500">本命飞剑</span>
+                            <span class="font-bold" id="equip-weapon-name">未装备</span>
+                        </div>
+                        <div class="p-1 bg-white/60 rounded border border-slate-100 text-[9px] flex justify-between">
+                            <span class="text-slate-500">流光道袍</span>
+                            <span class="font-bold" id="equip-armor-name">凡人麻衣</span>
+                        </div>
+                        <div class="p-1 bg-white/60 rounded border border-slate-100 text-[9px] flex justify-between">
+                            <span class="text-slate-500">灵韵饰品</span>
+                            <span class="font-bold" id="equip-accessory-name">无</span>
+                        </div>
+                        <div class="p-1 bg-white/60 rounded border border-slate-100 text-[9px] flex justify-between">
+                            <span class="text-slate-500">奇门法宝</span>
+                            <span class="font-bold" id="equip-artifact-name">无</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex-1 ink-panel p-2 overflow-y-auto custom-scroll">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-xs font-bold flex items-center gap-1">
+                            <i class="ri-archive-line text-amber-600"></i> 乾坤袋 · 法器灵韵
+                        </h3>
+                        <span id="inventory-space" class="text-[8px] text-slate-400 italic">空间：1/20</span>
+                    </div>
+                    <div id="inventory-grid" class="grid grid-cols-3 sm:grid-cols-4 gap-1"></div>
+                </div>
+            </div>
+
+            <!-- 历练界面 (优化版) -->
+            <div id="tab-fight" class="hidden h-full ink-panel p-3 flex flex-col">
+                <div id="battle-scene" class="flex-1 border border-dashed border-slate-200 rounded-xl flex items-center justify-center relative bg-white/30">
+                    <div id="enemy-area" class="text-center opacity-0 transition-all scale-90">
+                        <div class="w-16 h-16 mx-auto mb-2 flex items-center justify-center bg-rose-50 rounded-full border border-rose-100">
+                             <i id="enemy-icon" class="ri-ghost-line text-3xl text-rose-300"></i>
+                        </div>
+                        <h4 id="enemy-name" class="font-bold text-slate-700 text-xs">后山野兽</h4>
+                        <div class="w-24 h-1 bg-slate-200 rounded-full mx-auto mt-2 overflow-hidden">
+                            <div id="enemy-hp" class="h-full bg-rose-500" style="width: 100%"></div>
+                        </div>
+                        <!-- 战斗节奏指示器 -->
+                        <div class="mt-1 text-[8px] text-slate-400 flex items-center justify-center gap-1">
+                            <span>交锋节奏</span>
+                            <span class="combat-tick-indicator"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <button id="start-hunt" onclick="startBattle()" class="flex-1 py-3 bg-slate-800 text-white rounded-lg text-xs font-bold shadow-md active:scale-95 transition">进入大荒历练</button>
+                    <button id="flee-btn" onclick="fleeBattle()" class="hidden flex-1 py-3 bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition">返回洞府</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 右侧日志区域 -->
+        <aside class="w-full lg:w-72 shrink-0 z-10 mt-1 lg:mt-0">
+            <div class="ink-panel h-full flex flex-col overflow-hidden max-h-24 lg:max-h-full">
+                <div class="p-1 border-b border-slate-100 bg-slate-50 flex justify-between">
+                    <span class="text-[9px] font-bold text-slate-400">因果日志</span>
+                </div>
+                <div id="log-container" class="flex-1 p-2 overflow-y-auto custom-scroll space-y-1 text-[9px] leading-relaxed"></div>
+            </div>
+        </aside>
+    </main>
+
+    <script>
+        // ==================== 至尊修仙火柴人 · 绘制核心 ====================
+        const realmConfigs = {
+            1: { name: "炼气期", color: "#ffffff", desc: "引气入体，涤荡经脉。", aura: 1, particleCount: 10 },
+            2: { name: "筑基期", color: "#88ccff", desc: "筑就道基，寿享两百。", aura: 2, particleCount: 20 },
+            3: { name: "金丹期", color: "#ffcc00", desc: "一颗金丹吞入腹，始知我命不由天。", aura: 3, particleCount: 40 },
+            4: { name: "元婴期", color: "#00ffff", desc: "破丹成婴，神通自生，肉身不朽。", aura: 4, particleCount: 60 },
+            5: { name: "化神期", color: "#ff44aa", desc: "元神出窍，感悟天地，意念即法则。", aura: 6, particleCount: 100 }
+        };
+
+        class StickParticle {
+            constructor(cw, ch) {
+                this.cw = cw; this.ch = ch;
+                this.init();
+            }
+            init() {
+                this.x = Math.random() * this.cw;
+                this.y = Math.random() * this.ch;
+                this.vx = (Math.random() - 0.5) * 0.6;
+                this.vy = -Math.random() * 1 - 0.3;
+                this.alpha = Math.random() * 0.5 + 0.2;
+                this.size = Math.random() * 1.5 + 0.8;
+            }
+            update() {
+                this.y += this.vy;
+                this.x += this.vx;
+                if (this.y < 0) this.init();
+            }
+            draw(ctx, color) {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.fillStyle = color;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        let stickCanvas, stickCtx;
+        let stickParticles = [];
+        let stickFrame = 0;
+
+        function initStickParticles(canvas) {
+            const w = canvas.width, h = canvas.height;
+            const count = 60;
+            for (let i = 0; i < count; i++) {
+                stickParticles.push(new StickParticle(w, h));
+            }
+        }
+
+        function getStickmanLevelFromState() {
+            const realmMap = { '练气':1, '筑基':2, '金丹':3, '元婴':4, '化神':5 };
+            return realmMap[state.realm] || 1;
+        }
+
+        // ★★★ 重写 drawStickman：人物改为黑色，光环/金丹/法则保留彩色 ★★★
+        function drawStickman(ctx, cx, cy, level, pulse, scale) {
+            const config = realmConfigs[level];
+            const color = config.color;  // 境界色用于特效
+            
+            const baseSize = (26 + level * 2) * scale;
+            const bodyLen = (75 + level * 5) * scale;
+            const headY = cy - bodyLen - baseSize - (10 * scale) + pulse * 0.3 * scale;
+            
+            // 最外层save (用于全局线帽等)
+            ctx.save();
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            // ---------- 1. 绘制彩色特效 (光环/金丹/法则纹路) ----------
+            // 头部光环 (筑基以上) —— 彩色
+            if (level >= 2) {
+                ctx.save();
+                ctx.shadowBlur = 10 * scale + level * 2;
+                ctx.shadowColor = color;          // 彩色辉光
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2.5 * scale;
+                ctx.setLineDash([8 * scale, 12 * scale]);
+                ctx.beginPath();
+                ctx.arc(cx, headY, baseSize + 18 * scale + pulse * scale, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // 丹田/金丹 (金丹及以上) —— 彩色光晕
+            if (level >= 3) {
+                const coreY = cy - bodyLen/3;
+                ctx.save();
+                ctx.shadowBlur = 20 * scale;
+                ctx.shadowColor = color;
+                const grad = ctx.createRadialGradient(cx, coreY, 0, cx, coreY, (18 + level * 2) * scale);
+                grad.addColorStop(0, '#fff');
+                grad.addColorStop(0.3, color);
+                grad.addColorStop(1, 'transparent');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(cx, coreY, (12 + level*2) * scale + pulse * 0.3 * scale, 0, Math.PI*2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // ---------- 2. 绘制黑色人物主体 (头部、躯干、四肢) ----------
+            ctx.save();
+            // 黑色阴影 + 黑色线条
+            ctx.shadowBlur = 10 * scale + level * 2;
+            ctx.shadowColor = '#000000';
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = (4 + level * 0.5) * scale;
+
+            // 头部
+            ctx.beginPath();
+            ctx.arc(cx, headY, baseSize, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // 眼睛 (也是黑色)
+            ctx.save();
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 3 * scale;
+            ctx.shadowBlur = 5 * scale;
+            ctx.shadowColor = '#000000';
+            ctx.beginPath();
+            ctx.arc(cx - baseSize/2.5, headY, baseSize/4, 0.1 * Math.PI, 0.9 * Math.PI);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(cx + baseSize/2.5, headY, baseSize/4, 0.1 * Math.PI, 0.9 * Math.PI);
+            ctx.stroke();
+            ctx.restore();
+
+            // 躯干
+            ctx.beginPath();
+            ctx.moveTo(cx, headY + baseSize);
+            ctx.lineTo(cx, cy);
+            ctx.stroke();
+
+            // 手臂
+            const shoulderY = headY + baseSize + 15 * scale;
+            const handX = 28 * scale;
+            const handY = cy - bodyLen/2.2;
+            ctx.beginPath();
+            ctx.moveTo(cx, shoulderY);
+            ctx.lineTo(cx - handX, handY);
+            ctx.lineTo(cx - 6 * scale, handY + 12 * scale);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cx, shoulderY);
+            ctx.lineTo(cx + handX, handY);
+            ctx.lineTo(cx + 6 * scale, handY + 12 * scale);
+            ctx.stroke();
+
+            // 腿部
+            const legW = (45 + level * 5) * scale;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.quadraticCurveTo(cx - legW, cy - 10 * scale, cx - legW + 10 * scale, cy + 18 * scale);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.quadraticCurveTo(cx + legW, cy - 10 * scale, cx + legW - 10 * scale, cy + 18 * scale);
+            ctx.stroke();
+
+            ctx.restore(); // 恢复人物主体设置
+
+            // ---------- 3. 法则纹路 (化神) 保留彩色 ----------
+            if (level === 5) {
+                ctx.save();
+                ctx.strokeStyle = color;
+                ctx.shadowBlur = 10 * scale;
+                ctx.shadowColor = color;
+                ctx.globalAlpha = 0.4;
+                ctx.lineWidth = 1.5 * scale;
+                for (let i = 0; i < 12; i++) {
+                    const angle = (i * Math.PI / 6) + stickFrame * 0.015;
+                    const dist = (130 + pulse * 2) * scale;
+                    ctx.beginPath();
+                    ctx.moveTo(cx + Math.cos(angle) * dist, cy - 50 * scale + Math.sin(angle) * dist);
+                    ctx.lineTo(cx + Math.cos(angle) * (dist + 30 * scale), cy - 50 * scale + Math.sin(angle) * (dist + 30 * scale));
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+
+            ctx.restore(); // 最外层restore
+        }
+
+        function drawStickmanCanvas() {
+            if (!stickCanvas || !stickCtx) return;
+            const ctx = stickCtx;
+            const w = stickCanvas.width, h = stickCanvas.height;
+            ctx.clearRect(0, 0, w, h);
+            
+            const level = getStickmanLevelFromState();
+            const config = realmConfigs[level];
+            
+            const particleCount = Math.min(config.particleCount, stickParticles.length);
+            for (let i = 0; i < particleCount; i++) {
+                stickParticles[i].update();
+                stickParticles[i].draw(ctx, config.color);
+            }
+            
+            const cx = w/2, cy = h * 0.7;
+            ctx.save();
+            ctx.strokeStyle = config.color;
+            for (let i = 1; i <= config.aura; i++) {
+                ctx.globalAlpha = 0.05 / i;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(cx, cy - 20, (90 + i * 35 + Math.sin(stickFrame * 0.04) * 6) * (w/600), 0, Math.PI*2);
+                ctx.stroke();
+            }
+            ctx.restore();
+            
+            const pulse = Math.sin(stickFrame * 0.04) * 6;
+            const scale = w / 600;
+            drawStickman(ctx, cx, cy, level, pulse, scale);
+        }
+
+        // ==================== 原始游戏状态 (完整保留，仅增改部分) ====================
+        let state = {
+            realm: "练气", stage: 1, 
+            breakthroughCount: 1,
+            hp: 100, maxHp: 100, exp: 0, maxExp: 100, 
+            stones: 20, herbs: 0,
+            arrayLvl: 1, 
+            gardenLvl: 1, gardenProgress: 0,
+            gardenPlanted: false,
+            starterReceived: false,
+            age: 15,
+            maxLifespan: 80,
+            baseAtk: 10, baseDef: 5,
+            atk: 10, def: 5,
+            isFighting: false, enemy: null,
+            equipment: [],
+            equipped: { weapon: null, armor: null, accessory: null, artifact: null },
+            combatTick: 0
+        };
+
+        const REALMS = ["练气", "筑基", "金丹", "元婴", "化神"];
+        const RUNES = ["道", "法", "玄", "妙", "真", "元", "灵", "太"];
+        const INVENTORY_CAPACITY = 20;
+        const ATTACK_INTERVAL = 35; // 约0.6秒一次攻击 (60帧 ≈ 1秒)
+
+        const QUALITY = { MORTAL: 0, SPIRIT: 1, MYSTIC: 2, TREASURE: 3 };
+        const QUALITY_COLOR = ['#6c757d', '#2d6a4f', '#4895ef', '#f72585'];
+        const QUALITY_PREFIX = ['凡品', '灵品', '玄品', '宝器'];
+
+        function calculateMaxLifespan(realm, stage) {
+            let base = 0;
+            switch (realm) {
+                case "练气": base = 80; break;
+                case "筑基": base = 150; break;
+                case "金丹": base = 250; break;
+                case "元婴": base = 400; break;
+                case "化神": base = 600; break;
+                default: base = 80;
+            }
+            return base + (stage - 1) * 2;
+        }
+
+        const ENEMY_POOL = [
+            { name: "野狼", icon: "ri-bug-line", baseHp: 40, baseAtk: 6, baseDef: 1, level: 1 },
+            { name: "山魈", icon: "ri-tree-line", baseHp: 60, baseAtk: 8, baseDef: 2, level: 2 },
+            { name: "树精", icon: "ri-plant-line", baseHp: 80, baseAtk: 7, baseDef: 4, level: 3 },
+            { name: "妖狐", icon: "ri-ghost-smile-line", baseHp: 70, baseAtk: 12, baseDef: 3, level: 4 },
+            { name: "魔修", icon: "ri-skull-line", baseHp: 100, baseAtk: 15, baseDef: 5, level: 5 },
+            { name: "血蝙蝠", icon: "ri-flight-takeoff-line", baseHp: 50, baseAtk: 10, baseDef: 1, level: 2 }
+        ];
+
+        function numberToChinese(n) {
+            const d = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
+            return n <= 10 ? d[n] : n;
+        }
+
+        function addLog(m, c = "") {
+            const con = document.getElementById('log-container');
+            const p = document.createElement('div');
+            p.className = `border-l-2 border-slate-100 pl-2 py-0.5 ${c}`;
+            p.innerHTML = `<span class="opacity-40 mr-2">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>${m}`;
+            con.prepend(p);
+            if (con.children.length > 30) con.lastChild.remove();
+        }
+
+        function recalcStats() {
+            let atkSum = 0, defSum = 0;
+            for (let slot in state.equipped) {
+                const eq = state.equipped[slot];
+                if (eq) {
+                    atkSum += eq.atk || 0;
+                    defSum += eq.def || 0;
+                }
+            }
+            state.atk = state.baseAtk + atkSum;
+            state.def = state.baseDef + defSum;
+        }
+
+        function generateRandomEquipment() {
+            const types = [
+                { name: "桃木剑", icon: "ri-knife-line", type: "weapon", atkBase: 2, defBase: 0, desc: "驱邪桃木" },
+                { name: "青布衣", icon: "ri-shirt-line", type: "armor", atkBase: 0, defBase: 1, desc: "粗麻编织" },
+                { name: "灵石坠", icon: "ri-gem-line", type: "accessory", atkBase: 0, defBase: 0, desc: "聚灵小饰", special: "灵力+3" },
+                { name: "兽皮靴", icon: "ri-footprint-line", type: "boot", atkBase: 0, defBase: 1, desc: "野兽毛皮" },
+                { name: "骨戒", icon: "ri-ring-line", type: "ring", atkBase: 1, defBase: 0, desc: "妖兽指骨" },
+                { name: "符箓", icon: "ri-star-line", type: "talisman", atkBase: 1, defBase: 0, desc: "辟邪符咒" },
+                { name: "拂尘", icon: "ri-brush-4-line", type: "weapon", atkBase: 2, defBase: 1, desc: "清心拂尘" },
+                { name: "玉葫芦", icon: "ri-flask-line", type: "artifact", atkBase: 1, defBase: 1, desc: "盛装灵液" },
+                { name: "飞剑", icon: "ri-sword-fill", type: "weapon", atkBase: 3, defBase: 0, desc: "御剑飞行" }
+            ];
+            const idx = Math.floor(Math.random() * types.length);
+            const base = types[idx];
+            
+            const r = Math.random();
+            let quality = QUALITY.MORTAL;
+            if (r < 0.6) quality = QUALITY.MORTAL;
+            else if (r < 0.85) quality = QUALITY.SPIRIT;
+            else if (r < 0.95) quality = QUALITY.MYSTIC;
+            else quality = QUALITY.TREASURE;
+            
+            let atk = base.atkBase + (quality >= QUALITY.SPIRIT ? 1 : 0) + (quality >= QUALITY.MYSTIC ? 1 : 0) + (quality >= QUALITY.TREASURE ? 2 : 0);
+            let def = base.defBase + (quality >= QUALITY.SPIRIT ? 1 : 0) + (quality >= QUALITY.MYSTIC ? 1 : 0) + (quality >= QUALITY.TREASURE ? 1 : 0);
+            
+            const prefix = QUALITY_PREFIX[quality];
+            const fullName = prefix + base.name;
+            const color = QUALITY_COLOR[quality];
+            
+            let desc = base.desc + ` (${prefix})`;
+            if (atk > 0) desc += ` 攻击+${atk}`;
+            if (def > 0) desc += ` 防御+${def}`;
+            
+            return {
+                id: 'eq_' + Date.now() + Math.random() + idx,
+                name: fullName,
+                icon: base.icon,
+                color: color,
+                desc: desc,
+                type: base.type,
+                atk: atk,
+                def: def,
+                quality: quality
+            };
+        }
+
+        function wearEquipment(equipId) {
+            const index = state.equipment.findIndex(e => e.id == equipId);
+            if (index === -1) return;
+            const eq = state.equipment[index];
+            let slot = null;
+            if (eq.type === 'weapon') slot = 'weapon';
+            else if (eq.type === 'armor') slot = 'armor';
+            else if (eq.type === 'accessory') slot = 'accessory';
+            else slot = 'artifact';
+
+            if (state.equipped[slot]) {
+                const occupied = 1 + state.equipment.length;
+                if (occupied >= INVENTORY_CAPACITY) {
+                    addLog("【背包】乾坤袋已满，无法替换装备", "text-rose-500");
+                    return;
+                }
+                const oldEq = state.equipped[slot];
+                state.equipment.push(oldEq);
+                addLog(`【卸下】${oldEq.name} 放回乾坤袋`, "text-slate-500");
+            }
+
+            state.equipment.splice(index, 1);
+            state.equipped[slot] = eq;
+            addLog(`【穿戴】法器 ${eq.name} 已装备`, "text-emerald-600");
+
+            recalcStats();
+            renderInventory();
+            renderEquipSlots();
+            updateUI();
+            saveGame();
+        }
+
+        function unequip(slot) {
+            if (!state.equipped[slot]) return;
+            const occupied = 1 + state.equipment.length;
+            if (occupied >= INVENTORY_CAPACITY) {
+                addLog("【背包】乾坤袋已满，无法卸下装备", "text-rose-500");
+                return;
+            }
+            const eq = state.equipped[slot];
+            state.equipment.push(eq);
+            state.equipped[slot] = null;
+            addLog(`【卸下】${eq.name} 放回乾坤袋`, "text-slate-500");
+
+            recalcStats();
+            renderInventory();
+            renderEquipSlots();
+            updateUI();
+            saveGame();
+        }
+
+        function decomposeEquipment(equipId, e) {
+            if (e) e.stopPropagation();
+            const index = state.equipment.findIndex(eq => eq.id == equipId);
+            if (index === -1) return;
+            const eq = state.equipment[index];
+            if (!confirm(`确定分解「${eq.name}」获得灵石吗？`)) return;
+            let reward = 5 + (eq.atk || 0) * 3 + (eq.def || 0) * 2 + Math.floor(Math.random() * 5);
+            if (eq.quality === QUALITY.SPIRIT) reward += 3;
+            else if (eq.quality === QUALITY.MYSTIC) reward += 8;
+            else if (eq.quality === QUALITY.TREASURE) reward += 20;
+            
+            state.equipment.splice(index, 1);
+            state.stones += reward;
+            addLog(`【分解】${eq.name} 化作灵石 x${reward}`, "text-amber-600");
+            renderInventory();
+            renderEquipSlots();
+            updateUI();
+            saveGame();
+        }
+
+        function renderEquipSlots() {
+            const slots = ['weapon', 'accessory', 'armor', 'artifact'];
+            slots.forEach(slot => {
+                const el = document.getElementById(`slot-${slot}`);
+                if (!el) return;
+                const eq = state.equipped[slot];
+                if (eq) {
+                    el.innerHTML = `<i class="${eq.icon}" style="color:${eq.color}"></i><span class="remove-tip">点击卸下</span>`;
+                } else {
+                    const iconMap = {
+                        weapon: 'ri-sword-line',
+                        accessory: 'ri-copper-coin-line',
+                        armor: 'ri-shirt-line',
+                        artifact: 'ri-magic-line'
+                    };
+                    el.innerHTML = `<i class="${iconMap[slot]} text-slate-400"></i><span class="remove-tip">点击卸下</span>`;
+                }
+            });
+
+            function setEquipText(id, eq) {
+                const span = document.getElementById(id);
+                if (eq) {
+                    span.innerText = eq.name;
+                    span.style.color = eq.color;
+                } else {
+                    span.innerText = id === 'equip-armor-name' ? '凡人麻衣' : '无';
+                    span.style.color = ''; 
+                }
+            }
+            setEquipText('equip-weapon-name', state.equipped.weapon);
+            setEquipText('equip-armor-name', state.equipped.armor);
+            setEquipText('equip-accessory-name', state.equipped.accessory);
+            setEquipText('equip-artifact-name', state.equipped.artifact);
+        }
+
+        function renderInventory() {
+            const grid = document.getElementById('inventory-grid');
+            if (!grid) return;
+            grid.innerHTML = '';
+
+            const herbDiv = document.createElement('div');
+            herbDiv.className = 'aspect-square bg-white border border-slate-200 rounded-lg flex flex-col items-center justify-center p-1 shadow-sm hover:border-emerald-400 transition cursor-pointer relative group';
+            herbDiv.innerHTML = `<i class="ri-leaf-line text-emerald-500 text-lg"></i>
+                <span class="absolute bottom-1 right-1 text-[9px] font-bold text-slate-600">${state.herbs}</span>
+                <div class="absolute invisible group-hover:visible -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] px-2 py-1 rounded whitespace-nowrap z-50">灵草：用于炼丹或播种</div>`;
+            grid.appendChild(herbDiv);
+
+            state.equipment.forEach(eq => {
+                const eqDiv = document.createElement('div');
+                const qualityClass = `eq-quality-${eq.quality !== undefined ? eq.quality : 0}`;
+                eqDiv.className = `aspect-square bg-white border-2 rounded-lg flex flex-col items-center justify-center p-1 shadow-sm hover:scale-105 transition cursor-pointer relative group ${qualityClass}`;
+                eqDiv.setAttribute('onclick', `wearEquipment('${eq.id}')`);
+                eqDiv.innerHTML = `<i class="${eq.icon} text-lg" style="color:${eq.color}"></i>
+                    <span class="text-[7px] font-bold mt-1 truncate w-full text-center" style="color:${eq.color}">${eq.name}</span>
+                    <button onclick="decomposeEquipment('${eq.id}', event)" class="absolute top-0 right-0 w-5 h-5 bg-white/80 rounded-bl-md flex items-center justify-center text-rose-500 hover:bg-rose-100 transition z-10 text-sm shadow-sm" title="分解装备"><i class="ri-delete-bin-line"></i></button>
+                    <div class="absolute invisible group-hover:visible -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] px-2 py-1 rounded whitespace-nowrap z-50">${eq.desc || eq.name}</div>`;
+                grid.appendChild(eqDiv);
+            });
+
+            const occupied = 1 + state.equipment.length;
+            for (let i = occupied; i < INVENTORY_CAPACITY; i++) {
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'aspect-square bg-slate-100/30 border border-slate-100 rounded-lg';
+                grid.appendChild(emptyDiv);
+            }
+
+            document.getElementById('inventory-space').innerText = `空间：${occupied}/${INVENTORY_CAPACITY}`;
+        }
+
+        function handleGardenAction() {
+            if (!state.gardenPlanted) {
+                if (state.herbs < 1) {
+                    addLog("【灵田】没有灵草种子，无法播种", "text-rose-500");
+                    return;
+                }
+                state.herbs -= 1;
+                state.gardenPlanted = true;
+                state.gardenProgress = 0;
+                addLog("【灵田】消耗1株灵草，播下种子", "text-emerald-600");
+                renderInventory();
+                updateUI();
+                saveGame();
+            } else {
+                if (state.gardenProgress >= 100) {
+                    harvestHerbs();
+                } else {
+                    addLog("【灵田】灵草尚未成熟，再等等吧", "text-slate-400");
+                }
+            }
+        }
+
+        function harvestHerbs() {
+            if (!state.gardenPlanted || state.gardenProgress < 100) return;
+            let base = 1 + state.gardenLvl;
+            let extra = Math.floor(Math.random() * (state.gardenLvl + 1));
+            let total = base + extra;
+            if (Math.random() < 0.1) {
+                total *= 2;
+                addLog("【灵田】天降甘霖！灵草收成翻倍！", "text-amber-500");
+            }
+            state.herbs += total;
+            addLog(`【收获】灵田成熟，获得 ${total} 株灵草`, "text-emerald-600");
+            state.gardenPlanted = false;
+            state.gardenProgress = 0;
+            renderInventory();
+            updateUI();
+            saveGame();
+        }
+
+        function createRunes() {
+            const container = document.getElementById('rune-container');
+            if (!container) return;
+            container.innerHTML = '';
+            const orbit = document.createElement('div');
+            orbit.className = 'rune-orbit';
+            const count = Math.min(8, 2 + Math.floor(state.arrayLvl / 2));
+            const radius = 55 + (state.arrayLvl * 2);
+            for (let i = 0; i < count; i++) {
+                const rune = document.createElement('div');
+                rune.className = 'rune-text';
+                rune.innerText = RUNES[i % RUNES.length];
+                const angle = (i / count) * (Math.PI * 2);
+                const x = Math.cos(angle) * radius;
+                const z = Math.sin(angle) * radius; 
+                rune.style.transform = `translateX(${x}px) translateZ(${z}px)`;
+                rune.style.animationDelay = `${i * 0.4}s`;
+                orbit.appendChild(rune);
+            }
+            container.appendChild(orbit);
+        }
+
+        function toggleModal(show) {
+            const modal = document.getElementById('stat-modal');
+            if (show) {
+                document.getElementById('modal-realm').innerText = `${state.realm}${numberToChinese(state.stage)}层`;
+                document.getElementById('modal-atk').innerText = state.atk;
+                document.getElementById('modal-def').innerText = state.def;
+                document.getElementById('modal-lifespan').innerText = `${state.age}/${state.maxLifespan}`;
+                document.getElementById('modal-lifespan-text').innerText = `${state.age}/${state.maxLifespan}`;
+                const percent = (state.age / state.maxLifespan) * 100;
+                document.getElementById('modal-lifespan-bar').style.width = percent + "%";
+                modal.classList.add('active');
+            } else {
+                modal.classList.remove('active');
+            }
+        }
+
+        function updateArrayVisuals() {
+            const root = document.documentElement;
+            const outerRing = document.getElementById('array-outer-ring');
+            let color, glow, speed;
+            if (state.arrayLvl <= 3) {
+                color = "#52b788"; glow = "rgba(82, 183, 136, 0.4)"; speed = "20s";
+                if(outerRing) outerRing.style.opacity = "0";
+            } else if (state.arrayLvl <= 6) {
+                color = "#4895ef"; glow = "rgba(72, 149, 239, 0.5)"; speed = "12s";
+                if(outerRing) { outerRing.style.opacity = "0.2"; outerRing.style.width = "115%"; outerRing.style.height = "115%"; }
+            } else if (state.arrayLvl <= 9) {
+                color = "#f72585"; glow = "rgba(247, 37, 133, 0.6)"; speed = "8s";
+                if(outerRing) { outerRing.style.opacity = "0.4"; outerRing.style.width = "130%"; outerRing.style.height = "130%"; }
+            } else {
+                color = "#ff9f1c"; glow = "rgba(255, 159, 28, 0.7)"; speed = "5s";
+                if(outerRing) { outerRing.style.opacity = "0.6"; outerRing.style.width = "150%"; outerRing.style.height = "150%"; }
+            }
+            root.style.setProperty('--array-color', color);
+            root.style.setProperty('--array-glow', glow);
+            root.style.setProperty('--array-speed', speed);
+            const scale = 1 + (state.arrayLvl * 0.02);
+            const container = document.querySelector('.spirit-array-container');
+            if(container) container.style.transform = `scale(${scale})`;
+            createRunes();
+        }
+
+        function updateUI() {
+            const currentRealmText = `${state.realm}${numberToChinese(state.stage)}层`;
+            document.getElementById('player-realm').innerText = currentRealmText;
+            document.getElementById('player-stones').innerText = Math.floor(state.stones).toLocaleString();
+            document.getElementById('player-herbs').innerText = state.herbs;
+            document.getElementById('player-lifespan').innerText = `${state.age}/${state.maxLifespan}`;
+            document.getElementById('array-lvl').innerText = `${numberToChinese(state.arrayLvl)}阶`;
+            document.getElementById('hp-text').innerText = `${Math.floor(state.hp)}/${state.maxHp}`;
+            document.getElementById('exp-text').innerText = `${Math.floor(state.exp)}/${Math.floor(state.maxExp)}`;
+            document.getElementById('hp-bar').style.width = (state.hp / state.maxHp) * 100 + "%";
+            document.getElementById('exp-bar').style.width = (state.exp / state.maxExp) * 100 + "%";
+            document.getElementById('stat-atk').innerText = state.atk;
+            document.getElementById('stat-def').innerText = state.def;
+            document.getElementById('upgrade-cost').innerText = state.arrayLvl * 50;
+            document.getElementById('garden-upgrade-cost').innerText = state.gardenLvl * 30;
+            document.getElementById('garden-level').innerText = state.gardenLvl;
+            
+            const gainPerSecond = (0.015 * state.arrayLvl * 60).toFixed(1); // 60帧/秒
+            document.getElementById('qi-speed').innerText = gainPerSecond + '/秒';
+            
+            const gardenBar = document.getElementById('garden-progress');
+            gardenBar.style.width = state.gardenProgress + "%";
+            
+            const actionBtn = document.getElementById('garden-action-btn');
+            const gardenStatus = document.getElementById('garden-status');
+            
+            if (!state.gardenPlanted) {
+                gardenStatus.innerText = `灵田空闲 · 可播种 (消耗1灵草) · 等级${state.gardenLvl}`;
+                actionBtn.innerText = "播种 (消耗1灵草)";
+                actionBtn.disabled = (state.herbs < 1);
+                actionBtn.className = `w-full py-2 rounded text-[9px] font-bold ${state.herbs < 1 ? 'bg-slate-200 text-slate-400' : 'bg-emerald-500 text-white hover:bg-emerald-600'}`;
+                document.getElementById('garden-icon').className = 'ri-seedling-line text-emerald-500';
+            } else {
+                if (state.gardenProgress >= 100) {
+                    gardenStatus.innerText = `灵草成熟 · 可收获 · 当前产量受等级和运气影响`;
+                    actionBtn.innerText = "收获灵草";
+                    actionBtn.disabled = false;
+                    actionBtn.className = "w-full py-2 bg-amber-500 text-white rounded text-[9px] font-bold hover:bg-amber-600";
+                    document.getElementById('garden-icon').classList.add('herb-ripe');
+                } else {
+                    gardenStatus.innerText = `聚灵草生长中 · 进度 ${Math.floor(state.gardenProgress)}% · 预计收获: ${1 + state.gardenLvl}~${2 + state.gardenLvl*2}株`;
+                    actionBtn.innerText = "生长中...";
+                    actionBtn.disabled = true;
+                    actionBtn.className = "w-full py-2 bg-slate-100 text-slate-400 rounded text-[9px] font-bold";
+                    document.getElementById('garden-icon').className = 'ri-leaf-line text-emerald-500';
+                }
+            }
+            
+            const breakBtn = document.getElementById('break-btn');
+            if (state.exp >= state.maxExp) { breakBtn.classList.remove('hidden'); } 
+            else { breakBtn.classList.add('hidden'); }
+        }
+
+        // ==================== 优化后的战斗系统 ====================
+        // 执行一次完整的交锋回合 (玩家攻击 → 敌人反击)
+        function combatRound() {
+            if (!state.isFighting || !state.enemy) return;
+
+            // 玩家攻击
+            let playerDmg = Math.max(1, state.atk - state.enemy.def);
+            // 5%暴击
+            const isCrit = Math.random() < 0.05;
+            if (isCrit) playerDmg = Math.floor(playerDmg * 1.8);
+            
+            state.enemy.hp -= playerDmg;
+            let critTag = isCrit ? "★暴击" : "";
+            addLog(`⚔️ 你对 ${state.enemy.name} 造成 ${playerDmg} 点伤害${critTag}`, "text-rose-400");
+
+            if (state.enemy.hp <= 0) {
+                // 胜利
+                const baseReward = 10 + Math.floor(Math.random() * 15) + state.breakthroughCount * 2;
+                state.stones += baseReward;
+                let expGain = Math.floor(state.enemy.maxHp / 6) + 3 + state.breakthroughCount;
+                state.exp = Math.min(state.maxExp, state.exp + expGain);
+                addLog(`🏆 击败 ${state.enemy.name}，获得灵石 x${baseReward}，修为 +${expGain}`, "text-emerald-600");
+                
+                // 额外掉落
+                if (Math.random() < 0.4) {
+                    let herbGain = 1 + Math.floor(Math.random() * (state.gardenLvl + 1));
+                    state.herbs += herbGain;
+                    addLog(`🌿 从敌人身上搜出灵草 x${herbGain}`, "text-emerald-600");
+                }
+                if (Math.random() < 0.35) {
+                    if (state.equipment.length < INVENTORY_CAPACITY) {
+                        let eq = generateRandomEquipment();
+                        state.equipment.push(eq);
+                        addLog(`✨ 获得法器：${eq.name}`, "text-purple-600");
+                    } else {
+                        let extraStones = 12 + Math.floor(Math.random() * 15);
+                        state.stones += extraStones;
+                        addLog(`🎒 背包已满，法器化为灵石 x${extraStones}`, "text-amber-600");
+                    }
+                }
+                renderInventory();
+                fleeBattle(); // 战斗结束，退出
+                return;
+            }
+
+            // 敌人反击 (5%闪避)
+            const isDodge = Math.random() < 0.05;
+            if (isDodge) {
+                addLog(`🌀 你身法灵动，闪过了 ${state.enemy.name} 的攻击`, "text-cyan-500");
+            } else {
+                let enemyDmg = Math.max(1, state.enemy.atk - state.def);
+                state.hp -= enemyDmg;
+                addLog(`💥 ${state.enemy.name} 对你造成 ${enemyDmg} 点伤害`, "text-rose-600");
+
+                if (state.hp <= 0) {
+                    // 重伤惩罚
+                    state.hp = Math.floor(state.maxHp * 0.3); // 保留30%血量
+                    let loss = Math.floor(state.stones * 0.1) + 5;
+                    state.stones = Math.max(0, state.stones - loss);
+                    addLog(`😵 你重伤昏迷，醒来时发现灵石少了 ${loss} 枚`, "text-red-700");
+                    fleeBattle();
+                }
+            }
+        }
+
+        let frameCounter = 0;
+        function gameLoop() {
+            frameCounter++;
+            stickFrame++;
+
+            // 【修改点】寿元增加调慢4倍：从300帧改为1200帧（约20秒增加1岁）
+            if (frameCounter >= 1200) {
+                frameCounter = 0;
+                if (state.age < state.maxLifespan) {
+                    state.age++;
+                }
+            }
+
+            // 自动修炼
+            if (state.exp < state.maxExp) state.exp += (0.015 * state.arrayLvl);
+            // 自动回血（非战斗）
+            if (!state.isFighting && state.hp < state.maxHp) state.hp = Math.min(state.maxHp, state.hp + 0.08);
+            
+            // 灵田生长
+            if (state.gardenPlanted && state.gardenProgress < 100) {
+                state.gardenProgress += (0.04 * state.gardenLvl);
+                if (state.gardenProgress > 100) state.gardenProgress = 100;
+            }
+            
+            // ========== 新战斗逻辑：基于冷却的回合制 ==========
+            if (state.isFighting && state.enemy) {
+                state.combatTick--;
+                if (state.combatTick <= 0) {
+                    combatRound();                // 执行一次交锋
+                    state.combatTick = ATTACK_INTERVAL; // 重置冷却
+                }
+            }
+
+            updateUI();
+            if (state.enemy) {
+                document.getElementById('enemy-hp').style.width = (state.enemy.hp / state.enemy.maxHp) * 100 + "%";
+            }
+
+            drawStickmanCanvas();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ★ 修复：手动聚集时粒子从阵法中心飘出，避免缩放偏移
+        function manualGather(e) {
+            state.exp = Math.min(state.maxExp, state.exp + 1);
+            // 获取聚灵阵容器中心坐标
+            const container = document.querySelector('.spirit-array-container');
+            if (container) {
+                const rect = container.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                createParticles(centerX, centerY);
+            } else {
+                // 降级方案：使用点击位置
+                createParticles(e.clientX, e.clientY);
+            }
+            updateUI();
+        }
+
+        function createParticles(x, y) {
+            for (let i = 0; i < 6; i++) {
+                const p = document.createElement('div');
+                p.className = 'qi-particle';
+                p.style.left = x + 'px'; p.style.top = y + 'px';
+                p.style.width = '4px'; p.style.height = '4px';
+                const angle = Math.random() * Math.PI * 2;
+                p.style.setProperty('--sx', `${Math.cos(angle)*60}px`);
+                p.style.setProperty('--sy', `${Math.sin(angle)*60}px`);
+                document.body.appendChild(p);
+                setTimeout(() => p.remove(), 1000);
+            }
+        }
+
+        function upgradeArray() {
+            let cost = state.arrayLvl * 50;
+            if (state.stones >= cost) {
+                state.stones -= cost; state.arrayLvl++;
+                addLog(`【洞府】聚灵阵提升至 ${numberToChinese(state.arrayLvl)} 阶。`, "text-emerald-700");
+                updateArrayVisuals(); updateUI(); saveGame();
+            } else { addLog("灵石匮乏，无法升级阵法。", "text-rose-400"); }
+        }
+
+        function upgradeGarden() {
+            let cost = state.gardenLvl * 30;
+            if (state.stones >= cost) {
+                state.stones -= cost; state.gardenLvl++;
+                addLog(`【灵田】灵田升阶，现在等级 ${state.gardenLvl}，生长速度与产量提升。`, "text-emerald-600");
+                updateUI(); saveGame();
+            }
+        }
+
+        function alchemyExchange() {
+            if (state.herbs >= 1) {
+                state.herbs--; state.stones += 5;
+                addLog("【炼丹】炼化灵草，得灵石 5 枚。", "text-amber-600");
+                renderInventory();   
+                updateUI(); saveGame();
+            }
+        }
+
+        function tryBreakthrough() {
+            if (Math.random() > 0.4) {
+                state.stage++;
+                if (state.stage > 9) {
+                    state.stage = 1;
+                    let i = REALMS.indexOf(state.realm);
+                    if (i < 4) state.realm = REALMS[i + 1];
+                }
+                state.breakthroughCount++;
+                state.exp = 0; 
+                state.maxExp *= 1.8;
+                state.maxHp += 30; 
+                state.hp = state.maxHp;
+                state.baseAtk += 5;
+                state.baseDef += 3;
+                state.maxLifespan = calculateMaxLifespan(state.realm, state.stage);
+                recalcStats();
+                addLog("突破桎梏，大道可期！寿元延长！", "text-emerald-600 font-bold");
+            } else {
+                state.exp *= 0.8; 
+                addLog("心魔缠身，突破失败。", "text-rose-500");
+            }
+            updateUI(); 
+            saveGame();
+        }
+
+        function startBattle() {
+            state.isFighting = true;
+            // 根据玩家突破次数动态生成怪物强度
+            let baseEnemy = ENEMY_POOL[Math.floor(Math.random() * ENEMY_POOL.length)];
+            let factor = Math.max(1, state.breakthroughCount);
+            let hp = Math.floor(baseEnemy.baseHp * (0.8 + factor * 0.15));
+            let atk = Math.floor(baseEnemy.baseAtk * (0.8 + factor * 0.12));
+            let def = Math.floor(baseEnemy.baseDef * (0.8 + factor * 0.1));
+            state.enemy = { 
+                name: baseEnemy.name, 
+                icon: baseEnemy.icon,
+                hp: hp, maxHp: hp, 
+                atk: atk, def: def 
+            };
+            document.getElementById('enemy-icon').className = `${baseEnemy.icon} text-3xl text-rose-300`;
+            document.getElementById('enemy-name').innerText = baseEnemy.name;
+            
+            document.getElementById('enemy-area').style.opacity = '1';
+            document.getElementById('enemy-area').style.transform = 'scale(1)';
+            document.getElementById('start-hunt').classList.add('hidden');
+            document.getElementById('flee-btn').classList.remove('hidden');
+
+            // 重置战斗冷却，让第一次攻击快速发生
+            state.combatTick = 10; 
+        }
+
+        function fleeBattle() {
+            state.isFighting = false; 
+            state.enemy = null;
+            document.getElementById('enemy-area').style.opacity = '0';
+            document.getElementById('enemy-area').style.transform = 'scale(0.9)';
+            document.getElementById('start-hunt').classList.remove('hidden');
+            document.getElementById('flee-btn').classList.add('hidden');
+        }
+
+        function switchTab(tab) {
+            ['home', 'bag', 'fight'].forEach(t => {
+                document.getElementById(`tab-${t}`).classList.add('hidden');
+                document.getElementById(`btn-${t}`).classList.remove('tab-active');
+            });
+            document.getElementById(`tab-${tab}`).classList.remove('hidden');
+            document.getElementById(`btn-${tab}`).classList.add('tab-active');
+            if (tab === 'bag') {
+                renderInventory();  
+                renderEquipSlots();
+            }
+        }
+
+        function saveGame() { 
+            localStorage.setItem('xiuxian_v15_age', JSON.stringify(state)); 
+        }
+
+        function loadGame() {
+            const s = localStorage.getItem('xiuxian_v15_age');
+            if (s) {
+                const saved = JSON.parse(s);
+                state = { ...state, ...saved, isFighting: false };
+                if (state.baseAtk === undefined) {
+                    state.baseAtk = state.atk || 10;
+                    state.baseDef = state.def || 5;
+                }
+                if (!state.equipped) state.equipped = { weapon: null, armor: null, accessory: null, artifact: null };
+                if (!state.equipment) state.equipment = [];
+                if (state.gardenPlanted === undefined) state.gardenPlanted = false;
+                if (state.starterReceived === undefined) state.starterReceived = false;
+                if (state.breakthroughCount === undefined) state.breakthroughCount = state.level || 1;
+                if (state.age === undefined) state.age = 15;
+                if (state.combatTick === undefined) state.combatTick = 0;
+                state.maxLifespan = calculateMaxLifespan(state.realm, state.stage);
+                state.equipment = state.equipment.map(eq => {
+                    if (eq.quality === undefined) eq.quality = 0;
+                    if (eq.atk === undefined) eq.atk = 0;
+                    if (eq.def === undefined) eq.def = 0;
+                    if (!eq.color) eq.color = QUALITY_COLOR[eq.quality || 0];
+                    return eq;
+                });
+            }
+        }
+
+        function init() {
+            loadGame();
+
+            // 初始化canvas
+            stickCanvas = document.getElementById('stickman-canvas');
+            if (stickCanvas) {
+                stickCtx = stickCanvas.getContext('2d');
+                initStickParticles(stickCanvas);
+            }
+
+            if (!state.starterReceived && state.herbs === 0) {
+                state.herbs = 3;
+                state.starterReceived = true;
+                addLog("洞府初开，你在后山偶然发现3株野生灵草。", "text-emerald-600");
+                saveGame();
+            }
+
+            if (state.equipment.length === 0) {
+                for (let i = 0; i < 3; i++) {
+                    let eq = generateRandomEquipment();
+                    state.equipment.push(eq);
+                }
+            }
+            if (state.gardenPlanted === undefined) state.gardenPlanted = false;
+            if (state.breakthroughCount === undefined) {
+                state.breakthroughCount = state.level || 1;
+            }
+            state.maxLifespan = calculateMaxLifespan(state.realm, state.stage);
+            if (state.age === undefined) state.age = 15;
+            
+            recalcStats();
+            updateUI();
+            updateArrayVisuals();
+            createRunes(); 
+            renderInventory();
+            renderEquipSlots();
+            addLog("万物皆灵，你于洞府中感悟天地初开之气。", "text-slate-400 italic");
+            gameLoop();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
